@@ -56,7 +56,7 @@ cpy_original:                   ; this code will copy original MBR to 0x7c00
   mov cx, 0x0002                ; read 2nd sector
   mov bx, 0x7c00                ; dest address
   call wr_sector                ; copy orignal MBR
-  jmp 0:0x7c00                  ; far jump to the original MBR
+  jmp 0x0:0x7c00                  ; far jump to the original MBR
 
 ; write/read sector on disk, based on
 ; ah = 0x02 read, ah = 0x03 write

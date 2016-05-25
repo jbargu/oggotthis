@@ -11,10 +11,16 @@ $(OBJECT): $(ASM)
 	nasm -f bin $(ASM)
 
 run: $(FLOPPY) copy
-	qemu-system-i386 -boot c -fda $(FLOPPY) -hda $(IMG)
+	qemu-system-i386 -boot a -fda $(FLOPPY) -hda $(IMG)
 
 debug: $(FLOPPY) copy
 	qemu-system-i386 -boot a -fda $(FLOPPY) -hda $(IMG) -S -s
+
+run-hd: $(FLOPPY) copy
+	qemu-system-i386 -boot c -fda $(FLOPPY) -hda $(IMG)
+
+debug-hd: $(FLOPPY) copy
+	qemu-system-i386 -boot c -fda $(FLOPPY) -hda $(IMG) -S -s
 
 gdb:
 	gdb -x gdbinit
@@ -38,4 +44,5 @@ $(FLOPPY): rainbow
 	dd if=/dev/zero of=$(FLOPPY) bs=512 count=2880
 	dd if=rainbow of=$(FLOPPY) bs=512 count=1 conv=notrunc seek=1
 
-
+clean:
+	rm $(OBJECT) $(FLOPPY) rainbow

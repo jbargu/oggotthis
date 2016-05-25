@@ -40,45 +40,42 @@ nxt_disk:
   cmp di, 0x04              ; we are over the available disks
   jl dsk_lp                ; jump if lower than 4
 
-lp1:
-  jmp lp1
+; now we'll copy back original MBR and jump to it
+; we have to relocate ourselves to 0x7e00, so we don't overwrite when copying
+; original MBR
+mov dl, [bootDrive]             ; retrieve current boot drive
+mov si, cpy_original            ; source address
+mov di, 0x7e00                  ; destination address, 0x7e00 in our case
+mov cx, end_cpy                 ; load end of code address
+sub cx, cpy_original            ; subtract start of code, cx = code length
+rep movsb                       ; copy stuff from source to dest address
+jmp 0x7e00                      ; jump to new address
 
-
-
-
-  ;mov dl, 0x81
-  ;call write_sector
-  ;.CopyLower:
-    ;mov cx, 0x0100            ; 256 WORDs in MBR
-    ;mov si, 0x7C00            ; Current MBR Address
-    ;mov di, 0x0600            ; New MBR Address
-    ;rep movsw                 ; Copy MBR
-  ;jmp 0:LowStart              ; Jump to new Address
-
-  ;.jumpToVBR:
-    ;cmp WORD [0x7DFE], 0xAA55 ; Check Boot Signature
-    ;jne ERROR                 ; Error if not Boot Signature
-    ;mov si, WORD [PToff]      ; Set DS:SI to Partition Table Entry
-    ;mov dl, BYTE [bootDrive]  ; Set DL to Drive Number
-    ;jmp 0x7C00                ; Jump To VBR
+cpy_original:                   ; this code will copy original MBR to 0x7c00
+  mov ah, 0x02                  ; read sector, ah = 0x02
+  mov cx, 0x0002                ; read 2nd sector
+  mov bx, 0x7c00                ; dest address
+  call wr_sector                ; copy orignal MBR
+  jmp 0:0x7c00                  ; far jump to the original MBR
 
 ; write/read sector on disk, based on
 ; ah = 0x02 read, ah = 0x03 write
 ; dl = disk number
 wr_sector:
   mov si, 0x03                ; max number of attempts to read from drive
-.lprs:
-  int 0x13
-  jnc .endrs                  ; alright carry was not set, read was successful
-  dec si                      ; decrement counter
-  jc .endrs
-  pusha
-  xor ah, ah                  ; ah = 0, reset disk
-  int 0x13                    ; reset disk, we have to try this at most 3 times
-  popa
-  jmp .lprs
-.endrs:
-  retn
+  .lprs:
+    int 0x13
+    jnc .endrs                  ; alright carry was not set, read was successful
+    dec si                      ; decrement counter
+    jc .endrs
+    pusha
+    xor ah, ah                  ; ah = 0, reset disk
+    int 0x13                    ; reset disk, we have to try this at most 3 times
+    popa
+    jmp .lprs
+  .endrs:
+    retn
+end_cpy                         ; end of code for copying original MBR
 
 
 times (218 - ($-$$)) nop      ; Pad for disk time stamp

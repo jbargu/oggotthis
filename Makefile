@@ -10,7 +10,7 @@ $(OBJECT): $(ASM)
 	nasm -f bin $(ASM)
 
 run: $(FLOPPY) copy
-	qemu-system-i386 -boot c -fda $(FLOPPY) -hda $(IMG)
+	qemu-system-i386 -boot a -fda $(FLOPPY) -hda $(IMG)
 
 debug: $(FLOPPY) copy
 	qemu-system-i386 -boot a -fda $(FLOPPY) -hda $(IMG) -S -s

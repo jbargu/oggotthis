@@ -10,10 +10,10 @@ all: compile copy
 $(OBJECT): $(ASM)
 	nasm -f bin $(ASM)
 
-run: $(FLOPPY) copy
+run: $(FLOPPY) restore copy
 	qemu-system-i386 -boot a -fda $(FLOPPY) -hda $(IMG)
 
-debug: $(FLOPPY) copy
+debug: $(FLOPPY) restore copy
 	qemu-system-i386 -boot a -fda $(FLOPPY) -hda $(IMG) -S -s
 
 run-hd: $(FLOPPY) copy

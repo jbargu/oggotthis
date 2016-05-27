@@ -80,28 +80,37 @@ cpy_original:                   ; this code will copy original MBR to 0x7c00
   mov word [0x13*4+2], 0
   ;mov ah, 0x02
   ;mov al, 0x01
-  ;mov cx, 0x0001
+  ;mov cx, 0x0002
   ;mov bx, 0x8000
   ;call wr_sector
   mov ax, 0xaa55
   jmp 0x0:0x7c00                  ; far jump to the original MBR
 
 dsk_hook:
-  nop
-  pushf
-  cmp ah, 0x02
-  jne .end_hook
-  cmp cx, 0x0001
-  jne .end_hook
-  mov cx, 0x0002
-.end_hook:
-  popf
-  ;mov ax, [cs:oldint13-cpy_original+0x7e00]
-  call [cs:oldint13-cpy_original+0x7e00]
-  ;call 0xe3fe
-  nop
-  ;mov ax, ax
-  ret
+  ;nop
+  ;push cx
+  ;pushf
+  ;cmp ah, 0x02
+  ;jne .end_hook
+  ;cmp cx, 0x0001
+  ;jne .end_hook
+  ;mov cx, 0x0001
+;.end_hook:
+  ;popf
+  ;pushf
+  ;push cs
+  ;push cx
+  push word [cs:oldint13-cpy_original+0x7e00+2]
+  push word [cs:oldint13-cpy_original+0x7e00]
+  retf
+
+;call far [cs:oldint13-cpy_original+0x7e00]
+  ;pop cx
+  ;pop cx
+  ;pop cx
+  ;sti
+  iret
+
 
 oldint13:
   dd 45                   ; var for saving int13 address
@@ -127,9 +136,9 @@ wr_sector:
 end_cpy:                         ; end of code for copying original MBR
 
 
-times (218 - ($-$$)) nop      ; Pad for disk time stamp
+;times (218 - ($-$$)) nop      ; Pad for disk time stamp
 
-DiskTimeStamp times 8 db 0    ; Disk Time Stamp
+;DiskTimeStamp times 8 db 0    ; Disk Time Stamp
 
 bootDrive db 0                ; Our Drive Number Variable
 disk_codes:                   ; available drives variable

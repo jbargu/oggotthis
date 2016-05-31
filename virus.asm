@@ -54,14 +54,14 @@ nxt_disk:
 relocate:
   mov dl, [bootDrive]             ; retrieve current boot drive
   mov si, cpy_original            ; source address
-  mov di, 0x7e00                  ; destination address, 0x7e00 in our case
+  mov di, 0xF000                  ; destination address, 0xF000 in our case
   mov cx, end_cpy                 ; load end of code address
   sub cx, cpy_original            ; subtract start of code, cx = code length
   rep movsb                       ; copy stuff from source to dest address
 
-  jmp 0x7e00                      ; jump to new address
+  jmp 0:0xF000                      ; jump to new address
 
-; this code resides on 0x7e00 after copying
+; this code resides on 0xF000 after copying
 cpy_original:                   ; this code will copy original MBR to 0x7c00
   mov ah, 0x02                  ; read sector, ah = 0x02
   mov cx, 0x0002                ; read 2nd sector
@@ -71,11 +71,11 @@ cpy_original:                   ; this code will copy original MBR to 0x7c00
   ; before we jump into org mbr, let's hook int 13h
   mov ax, word [0x13*4]
   mov bx, word [0x13*4+2]
-  mov [oldint13-cpy_original+0x7e00], ax
-  mov [oldint13-cpy_original+0x7e00+2], bx
+  mov [oldint13-cpy_original+0xF000], ax
+  mov [oldint13-cpy_original+0xF000+2], bx
   mov ax, dsk_hook
   sub ax, cpy_original
-  add ax, 0x7e00
+  add ax, 0xF000
   mov word [0x13*4], ax
   mov word [0x13*4+2], 0
   ;mov ah, 0x02
@@ -97,18 +97,18 @@ dsk_hook:
   ;mov cx, 0x0001
 ;.end_hook:
   ;popf
-  ;pushf
+  pushf
   ;push cs
   ;push cx
-  push word [cs:oldint13-cpy_original+0x7e00+2]
-  push word [cs:oldint13-cpy_original+0x7e00]
+  push word [cs:oldint13-cpy_original+0xF000+2]
+  push word [cs:oldint13-cpy_original+0xF000]
   retf
 
-;call far [cs:oldint13-cpy_original+0x7e00]
+  ;call far [cs:oldint13-cpy_original+0xF000]
   ;pop cx
   ;pop cx
   ;pop cx
-  ;sti
+  sti
   iret
 
 

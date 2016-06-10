@@ -143,7 +143,7 @@ dsk_hook:
 oldint13:
   dd 0xDEBEFEAA                                 ; var for saving int13 address
 msg:
-  db "Polz is the best!"                        ; our evil message
+  db "OG got this bois!"                        ; our evil message
 access_counter:
   db 0                                          ; counter for number of accesses
 

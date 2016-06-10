@@ -37,10 +37,6 @@ rainbow:
 $(RD_OBJECT): $(READ_DSK)
 	nasm -f bin $(READ_DSK)
 
-#$(HD): $(READ_DSK)
-	#dd if=/dev/zero of=$(HD) bs=512 count=5000
-	#dd if=$(RD_OBJECT) of=$(HD) bs=512 count=1 conv=notrunc seek=1
-
 mnt:
 	mkdir mnt
 
@@ -49,8 +45,6 @@ read_dsk: mnt
 	sudo mount -o loop,offset=32256 $(HD) mnt
 	sudo cp read_disk.com mnt || true
 	sudo umount mnt
-
-
 
 $(FLOPPY): rainbow
 	dd if=/dev/zero of=$(FLOPPY) bs=512 count=2880

